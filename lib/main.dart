@@ -1,9 +1,34 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
-import 'package:speech_to_text/speech_to_text.dart';
+import 'package:provider/provider.dart';
 
-void main() {
-  runApp(const MyApp());
+import 'core/constants/app/application_constants.dart';
+import 'core/init/analytics/analytics_manager.dart';
+import 'core/init/language/language_manager.dart';
+import 'core/init/navigation/navigation_route.dart';
+import 'core/init/navigation/navigation_service.dart';
+import 'core/init/notifier/provider_list.dart';
+
+Future<void> main() async {
+  await _init();
+  runApp(
+    MultiProvider(
+      providers: [...ApplicationProvider.instance.dependItems],
+      child: EasyLocalization(
+        supportedLocales: LanguageManager.instance.supportedLocales,
+        path: ApplicationConstants.LANG_ASSET_PATH,
+        startLocale: LanguageManager.instance.enLocale,
+        child: const MyApp(),
+      ),
+    ),
+  );
+}
+
+Future<void> _init() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await EasyLocalization.ensureInitialized();
+  await Firebase.initializeApp();
 }
 
 class MyApp extends StatelessWidget {
@@ -12,84 +37,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  final SpeechToText _speechToText = SpeechToText();
-  bool _speechEnabled = false;
-  String _lastWords = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _initSpeech();
-  }
-
-  void _initSpeech() async {
-    _speechEnabled = await _speechToText.initialize();
-    setState(() {});
-  }
-
-  void _startListening() async {
-    await _speechToText.listen(onResult: _onSpeechResult);
-    setState(() {});
-  }
-
-  void _onSpeechResult(SpeechRecognitionResult result) {
-    setState(() {
-      _lastWords = result.recognizedWords;
-    });
-  }
-
-  void _stopListening() async {
-    await _speechToText.stop();
-    setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              _speechToText.isListening
-                  ? _lastWords
-                  : _speechEnabled
-                      ? 'Tap the microphone to start listening...'
-                      : 'Speech not available',
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed:
-            _speechToText.isNotListening ? _startListening : _stopListening,
-        tooltip: 'Increment',
-        child: Icon(_speechToText.isNotListening ? Icons.mic_off : Icons.mic),
-      ),
+      debugShowCheckedModeBanner: false,
+      //theme: context.watch<ThemeNotifier>().currentTheme,
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
+      onGenerateRoute: NavigationRoute.instance?.generateRoute,
+      navigatorKey: NavigationService.instance?.navigatorKey,
+      navigatorObservers: AnalyticsManager.instance.observer,
     );
   }
 }
